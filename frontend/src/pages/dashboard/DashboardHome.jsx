@@ -1,0 +1,150 @@
+import { useSelector } from "react-redux";
+import { Link } from "react-router-dom";
+import {
+  Rocket, Users, Kanban, MessageSquare, GraduationCap, TrendingUp,
+  Briefcase, Search, ShieldCheck, AlertCircle, Banknote,
+} from "lucide-react";
+
+const ROLE_LABEL = {
+  founder: "Founder",
+  developer: "Developer",
+  mentor: "Mentor",
+  investor: "Investor",
+  admin: "Admin",
+};
+
+function getMissingFields(user) {
+  if (!user) return [];
+  const missing = [];
+  if (!user.phone) missing.push("phone");
+  if (!user.about) missing.push("about");
+
+  if (user.role === "developer") {
+    if (!user.skills?.length) missing.push("skills");
+    if (!user.availability) missing.push("availability");
+  }
+  if (user.role === "mentor") {
+    if (!user.expertise) missing.push("expertise");
+    if (!user.currentRole) missing.push("currentRole");
+    if (!user.company) missing.push("company");
+    if (!user.yearsOfExperience) missing.push("yearsOfExperience");
+    if (!user.sessionPrice || user.sessionPrice <= 0) missing.push("sessionPrice");
+  }
+  if (user.role === "investor") {
+    if (!user.investmentFocus) missing.push("investmentFocus");
+    if (!user.company) missing.push("company");
+  }
+  return missing;
+}
+
+export default function DashboardHome() {
+  const { user } = useSelector((state) => state.auth);
+  const { myStartups } = useSelector((state) => state.startup);
+
+  const awaitingVerification =
+    (user?.role === "mentor" || user?.role === "investor") && !user?.isVerified;
+  const missing = getMissingFields(user);
+  const profileIncomplete = missing.length > 0 && user?.role !== "admin";
+
+  const getLinks = () => {
+    if (user?.role === "founder") {
+      // If we are inside a workspace, use that ID. Otherwise, use the first one.
+      const match = window.location.pathname.match(/^\/founder\/([a-zA-Z0-9]+)/);
+      const currentId = match ? match[1] : (myStartups.length > 0 ? myStartups[0]._id : null);
+      
+      if (!currentId) {
+        return [{ to: "/founder/create", label: "Create Startup", icon: Rocket, hint: "Launch your first startup" }];
+      }
+
+      return [
+        { to: `/founder/${currentId}/dashboard`, label: "My Startup", icon: Rocket, hint: "Open your workspace" },
+        { to: `/founder/${currentId}/recruitment`, label: "Recruitment", icon: Users, hint: "Post roles" },
+        { to: `/founder/${currentId}/tasks`, label: "Task Board", icon: Kanban, hint: "Assign work" },
+        { to: `/founder/${currentId}/mentors`, label: "Mentors", icon: GraduationCap, hint: "Book a session" },
+        { to: `/founder/${currentId}/investors`, label: "Investors", icon: TrendingUp, hint: "Send funding requests" },
+        { to: `/founder/${currentId}/chat`, label: "Team Chat", icon: MessageSquare, hint: "Talk with your team" },
+      ];
+    }
+
+    if (user?.role === "developer") {
+      return [
+        { to: "/browse-startups", label: "Browse Startups", icon: Search, hint: "Find startups" },
+        { to: "/my-applications", label: "Applications", icon: Briefcase, hint: "Track applications" },
+        { to: "/my-tasks", label: "My Tasks", icon: Kanban, hint: "Work assigned to you" },
+        { to: "/chat", label: "Team Chat", icon: MessageSquare, hint: "Talk with your team" },
+      ];
+    }
+
+    if (user?.role === "mentor") {
+      return [{ to: "/mentor/queue", label: "Mentorship Requests", icon: GraduationCap, hint: "Accept or decline requests" }];
+    }
+
+    if (user?.role === "investor") {
+      return [{ to: "/investor/requests", label: "Funding Requests", icon: Banknote, hint: "Review startups asking for investment" }];
+    }
+
+    return [];
+  };
+
+  const links = getLinks();
+
+  return (
+    <div className="mx-auto max-w-5xl">
+      {awaitingVerification && (
+        <div className="mb-6 flex items-start gap-3 rounded-xl border border-warning/40 bg-warning-bg px-4 py-3">
+          <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-gold-dark" />
+          <div>
+            <p className="text-sm font-medium text-ink">Your {user.role} account is awaiting verification</p>
+            <p className="mt-0.5 text-sm text-muted">You&apos;ll get a notification once approved.</p>
+          </div>
+        </div>
+      )}
+
+      {profileIncomplete && (
+        <div className="mb-6 flex items-start justify-between gap-4 rounded-xl border border-border bg-surface px-4 py-3">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-gold-dark" />
+            <div>
+              <p className="text-sm font-medium text-ink">Complete your profile</p>
+              <p className="mt-0.5 text-sm text-muted">{missing.length} fields still missing.</p>
+            </div>
+          </div>
+          <Link to="/profile" className="shrink-0 rounded-lg bg-gold px-3 py-1.5 text-xs font-medium text-ink hover:bg-gold-dark">Complete</Link>
+        </div>
+      )}
+
+      <div className="relative overflow-hidden rounded-2xl border border-border bg-surface p-6 shadow-xs">
+        <div className="absolute inset-y-0 left-0 w-1 bg-gold" aria-hidden="true" />
+        <div className="flex flex-wrap items-start justify-between gap-4 pl-2">
+          <div className="min-w-0">
+            <p className="font-mono text-[11px] uppercase tracking-widest text-muted">{ROLE_LABEL[user?.role] || "Dashboard"}</p>
+            <h2 className="mt-1 font-display text-2xl font-semibold tracking-tight text-ink">Welcome back, {user?.name?.split(" ")[0] || "there"}.</h2>
+            <p className="mt-1 text-sm text-muted">Signed in as <span className="text-ink">{user?.email}</span></p>
+          </div>
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-paper px-3 py-1 text-xs font-medium text-ink">
+            <span className="h-1.5 w-1.5 rounded-full bg-success" /> Active
+          </span>
+        </div>
+      </div>
+
+      {links.length > 0 && (
+        <div className="mt-8">
+          <h3 className="mb-3 font-display text-sm font-semibold text-ink">Quick actions</h3>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {links.map((l) => (
+              <Link key={l.label} to={l.to} className="group flex items-start gap-3 rounded-xl border border-border bg-surface p-4 transition-all hover:-translate-y-0.5 hover:border-border-strong hover:shadow-sm">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-paper transition-colors group-hover:bg-gold/15">
+                  <l.icon className="h-4 w-4 text-ink transition-colors group-hover:text-gold-dark" />
+                </span>
+                <div className="min-w-0">
+                  <p className="font-display text-sm font-semibold text-ink">{l.label}</p>
+                  <p className="mt-0.5 text-xs text-muted">{l.hint}</p>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
